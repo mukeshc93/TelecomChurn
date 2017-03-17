@@ -1,0 +1,257 @@
+---
+title: '**TELECOM CHURN PREDICTION**'
+output:
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+  html_document: default
+---
+
+> ####**This report will list down all my approaches and outputs for the codes and algorithms tried throughout the project.**
+
+
+###`Approach 1: Random Forest on Entire data`
+```{r}
+df <- read.csv("C:/Users/mukes_000/Downloads/Telecom_Churn_Data/Telecom Churn Data/Data.csv")
+
+df$target=as.factor(df$target)
+
+set.seed(134);x=sample(1:25000,0.8*25000)
+train_data_num=df[x,]
+test_data_num=df[-x,]
+
+library(randomForest)
+ml=randomForest(target~.,data=train_data_num)
+
+p_r_train=predict(ml,train_data_num)
+p_r_test <- predict(ml,test_data_num)
+```  
+  
+> Confusion matrix on train data    
+
+```{r, echo=FALSE}
+table(Predicted=p_r_train,Actual=train_data_num$target)
+```
+> Confusion matrix on test data
+
+```{r, echo=FALSE}
+table(Predicted=p_r_test,Actual=test_data_num$target)  
+```
+
+** **  
+
+> Using a custom function to find accuracy and other metrics
+
+```{r}
+metrics=function(actual,predicted)
+{
+  actual=as.numeric(as.character(actual));predicted=as.numeric(as.character(predicted))
+  accuracy=sum(!xor(actual, predicted))/length(actual);print(paste("accuracy: ", accuracy))
+  recall=sum(predicted & actual) / sum(actual);print(paste("recall: ",recall))
+  p=sum(predicted & actual) / sum(predicted);print(paste("precision: ",p))  
+}
+```
+
+**  **  
+**`Metrics on train data`**  
+
+```{r, echo=FALSE}
+metrics(train_data_num$target,p_r_train)
+```
+**  **
+
+**`Metrics on test data`** 
+```{r, echo=FALSE}
+metrics(test_data_num$target,p_r_test)
+```
+
+**  **
+**  **
+
+###`Approach 2: Logistic regression on Entire data`
+```{r, message=FALSE, warning=FALSE}
+df <- read.csv("C:/Users/mukes_000/Downloads/Telecom_Churn_Data/Telecom Churn Data/Data.csv")
+
+df$target=as.factor(df$target)
+
+set.seed(134);x=sample(1:nrow(df),0.8*nrow(df))
+train_data_num=df[x,]
+test_data_num=df[-x,]
+
+log_model=glm(target~.,data=train_data_num,family=binomial)
+p_train <- predict(log_model,train_data_num, type="response")
+p_r_train=(ifelse(p_train>0.3,1,0))
+
+p_test <- predict(log_model,test_data_num, type="response")
+p_r_test=(ifelse(p_test>0.3,1,0))
+
+pr <- prediction(p_train, train_data_num$target)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+plot(prf)
+abline(a=0, b= 1)
+
+```
+
+
+> ###The AUC obtained is `r auc`
+
+> Confusion matrix on train data
+
+```{r, echo=FALSE}
+table(Predicted=p_r_train,Actual=train_data_num$target)
+```
+> Confusion matrix on test data
+
+```{r, echo=FALSE}
+table(Actual=test_data_num$target,Predicted=p_r_test)
+```
+**  **
+
+**`Metrics on train data`** 
+
+```{r, echo=FALSE}
+metrics(train_data_num$target,p_r_train)
+
+```
+
+**  **
+
+**`Metrics on test data`** 
+
+```{r, echo=FALSE}
+metrics(test_data_num$target,p_r_test)
+```
+
+
+**  **
+**  **
+
+###`Approach 3: Logistic regression on PCA components`
+Here we are using attributes with only continuous values, as the discrete values when normalized can cause issues while calculating the principal components.
+
+```{r}
+df <- read.csv("C:/Users/mukes_000/Downloads/Telecom_Churn_Data/Telecom Churn Data/Data.csv")
+numr_attr=sapply(df,is.integer)
+numeric_data=df[,!numr_attr]
+set.seed(134);x=sample(1:nrow(df),0.8*nrow(df))
+train_data_num=numeric_data[x,]
+prin_comp=prcomp(train_data_num,scale. = T)
+
+train_data=as.data.frame(prin_comp$x[,1:12])##Taking 12 PCA components as they explain close to 80% variance
+train_data$target=as.factor(df$target[x])
+
+test_data_num=numeric_data[-x,]
+test_data=as.data.frame(predict(prin_comp,test_data_num)[,1:12])
+test_data$target=as.factor(df$target[-x])
+
+log_model=glm(target~.,data=train_data,family=binomial)
+
+p_train <- predict(log_model,train_data, type="response")
+p_r_train=(ifelse(p_train>0.3,1,0))
+
+p_test <- predict(log_model,test_data, type="response")
+p_r_test=(ifelse(p_test>0.3,1,0))
+
+pr <- prediction(p_train, train_data$target)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+plot(prf)
+abline(a=0, b= 1)
+
+```
+
+
+> ###The AUC obtained is `r auc`
+
+> Confusion matrix on train data
+
+```{r, echo=FALSE}
+table(Predicted=p_r_train,Actual=train_data$target)
+```
+> Confusion matrix on test data
+
+```{r, echo=FALSE}
+table(Actual=test_data$target,Predicted=p_r_test)
+```
+**  **
+
+**`Metrics on train data`** 
+
+```{r, echo=FALSE}
+metrics(train_data$target,p_r_train)
+
+```
+
+**  **
+
+**`Metrics on test data`** 
+
+```{r, echo=FALSE}
+metrics(test_data$target,p_r_test)
+```
+
+
+####Conclusion for both logistic models: The PCA model is a simpler model as compared to the overall model and it deals well with multicollinear attributes but is not explicable and loses explainability.
+
+
+**  **
+**  **
+
+###`Approach 4: Gradient boosting on Entire data`
+
+```{r}
+library(xgboost)
+df <- read.csv("C:/Users/mukes_000/Downloads/Telecom_Churn_Data/Telecom Churn Data/Data.csv")
+
+set.seed(134);x=sample(1:nrow(df),0.8*nrow(df))
+tr=df[x,]
+tst=df[-x,]
+
+tr_label=tr$target
+tr$target=NULL
+xgb_tr=xgb.DMatrix(as.matrix(tr),label=tr_label)
+
+tst_label=tst$target
+tst$target=NULL
+xgb_tst=xgb.DMatrix(as.matrix(tst),label=tst_label)
+
+xgb_ml=xgb.train(params=list("eta"=0.005,"subsample"=0.8,"colsample_bytree"=0.6, "max_depth"=5,
+                             "objective"="binary:logistic"),data=xgb_tr,nrounds = 1200)
+pred_xgb_tr=predict(xgb_ml,xgb_tr); pred_xgb_tr=(ifelse(pred_xgb_tr>0.3,1,0))
+pred_xgb_tst=predict(xgb_ml,xgb_tst);pred_xgb_tst=(ifelse(pred_xgb_tst>0.3,1,0))
+```
+
+
+> Confusion matrix on train data
+
+```{r, echo=FALSE}
+table(pred=pred_xgb_tr,Actual=tr_label)
+```
+
+> Confusion matrix on test data
+
+```{r, echo=FALSE}
+table(pred=pred_xgb_tst,Actual=tst_label)
+```
+
+
+**  **
+
+**`Metrics on train data`** 
+
+```{r, echo=FALSE}
+metrics(tr_label,pred_xgb_tr)
+```
+
+
+**  **
+
+**`Metrics on test data`** 
+
+```{r, echo=FALSE}
+metrics(tst_label,pred_xgb_tst)
+```
+
